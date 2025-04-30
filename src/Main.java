@@ -15,7 +15,7 @@ public class Main {
             dest = dest.toLowerCase();
             adjList.putIfAbsent(src, new HashMap<>());
             adjList.get(src).put(dest, adjList.get(src).getOrDefault(dest, 0) + 1);
-            adjList.putIfAbsent(dest, new HashMap<>()); // 确保目标节点存在
+            adjList.putIfAbsent(dest, new HashMap<>());
         }
 
         // 获取所有节点
@@ -34,13 +34,13 @@ public class Main {
         }
 
         // 桥接查询
-        List<String> queryBridgeWords(String word1, String word2) {
+        String queryBridgeWords(String word1, String word2) {
             word1 = word1.toLowerCase();
             word2 = word2.toLowerCase();
             List<String> bridges = new ArrayList<>();
 
-            if (!containsNode(word1)) return Collections.singletonList("No " + word1);
-            if (!containsNode(word2)) return Collections.singletonList("No " + word2);
+            if (!containsNode(word1)) return "No " + word1 + " in the graph!";
+            if (!containsNode(word2)) return "No " + word2 + " in the graph!";
 
             Map<String, Integer> word1Edges = getEdges(word1);
             for (String bridge : word1Edges.keySet()) {
@@ -48,12 +48,19 @@ public class Main {
                     bridges.add(bridge);
                 }
             }
-            return bridges;
+
+            if (bridges.isEmpty()) {
+                return "No bridge words from " + word1 + " to " + word2 + "!";
+            } else {
+                StringJoiner sj = new StringJoiner(", ");
+                bridges.forEach(sj::add);
+                return "The bridge words from " + word1 + " to " + word2 + " are: " + sj.toString();
+            }
         }
 
         // 生成新文本
-        String generateNewText(String input) {
-            List<String> words = processText(input);
+        String generateNewText(String inputText) {
+            List<String> words = processText(inputText);
             List<String> result = new ArrayList<>();
 
             for (int i = 0; i < words.size() - 1; i++) {
@@ -61,8 +68,17 @@ public class Main {
                 String next = words.get(i + 1);
                 result.add(current);
 
-                List<String> bridges = queryBridgeWords(current, next);
-                if (!bridges.isEmpty() && !bridges.getFirst().startsWith("No")) {
+                List<String> bridges = new ArrayList<>();
+                if (containsNode(current) && containsNode(next)) {
+                    Map<String, Integer> word1Edges = getEdges(current);
+                    for (String bridge : word1Edges.keySet()) {
+                        if (getEdges(bridge).containsKey(next)) {
+                            bridges.add(bridge);
+                        }
+                    }
+                }
+
+                if (!bridges.isEmpty()) {
                     String selected = bridges.get(random.nextInt(bridges.size()));
                     result.add(selected);
                 }
@@ -72,9 +88,13 @@ public class Main {
         }
 
         // 最短路径（Dijkstra算法）
-        List<String> shortestPath(String start, String end) {
-            start = start.toLowerCase();
-            end = end.toLowerCase();
+        String calcShortestPath(String word1, String word2) {
+            word1 = word1.toLowerCase();
+            word2 = word2.toLowerCase();
+
+            if (!containsNode(word1) || !containsNode(word2)) {
+                return "No path exists!";
+            }
 
             Map<String, Integer> dist = new HashMap<>();
             Map<String, String> prev = new HashMap<>();
@@ -85,12 +105,12 @@ public class Main {
             for (String node : adjList.keySet()) {
                 dist.put(node, Integer.MAX_VALUE);
             }
-            dist.put(start, 0);
-            queue.add(start);
+            dist.put(word1, 0);
+            queue.add(word1);
 
             while (!queue.isEmpty()) {
                 String current = queue.poll();
-                if (current.equals(end)) break;
+                if (current.equals(word2)) break;
 
                 for (Map.Entry<String, Integer> edge : getEdges(current).entrySet()) {
                     String neighbor = edge.getKey();
@@ -104,14 +124,27 @@ public class Main {
             }
 
             List<String> path = new LinkedList<>();
-            for (String at = end; at != null; at = prev.get(at)) {
+            for (String at = word2; at != null; at = prev.get(at)) {
                 path.addFirst(at);
             }
-            return path.getFirst().equals(start) ? path : Collections.emptyList();
+
+            if (path.getFirst().equals(word1)) {
+                return "The shortest path is: " + String.join("→", path) +
+                        " with length " + dist.get(word2);
+            } else {
+                return "No path exists!";
+            }
         }
 
         // PageRank计算
-        void calculatePageRank() {
+        Double calPageRank(String word) {
+            calculatePageRank(); // 确保先计算PageRank
+            return pageRanks.getOrDefault(word.toLowerCase(), 0.0);
+        }
+
+        private void calculatePageRank() {
+            if (pageRanks != null) return; // 已经计算过则不再重复计算
+
             int N = adjList.size();
             pageRanks = new HashMap<>();
             Map<String, Double> tempPR = new HashMap<>();
@@ -143,15 +176,8 @@ public class Main {
             }
         }
 
-        // 获取入边节点
-        private Set<String> getInNodes(String node) {
-            return adjList.keySet().stream()
-                    .filter(n -> getEdges(n).containsKey(node))
-                    .collect(Collectors.toSet());
-        }
-
         // 随机游走
-        List<String> randomWalk() {
+        String randomWalk() {
             List<String> path = new ArrayList<>();
             Set<String> visitedEdges = new HashSet<>();
 
@@ -173,7 +199,21 @@ public class Main {
                 path.add(next);
                 current = next;
             }
-            return path;
+
+            try (PrintWriter out = new PrintWriter("random_walk.txt")) {
+                out.println(String.join(" ", path));
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+
+            return "Random walk: " + String.join(" → ", path);
+        }
+
+        // 获取入边节点
+        private Set<String> getInNodes(String node) {
+            return adjList.keySet().stream()
+                    .filter(n -> getEdges(n).containsKey(node))
+                    .collect(Collectors.toSet());
         }
     }
 
@@ -234,8 +274,7 @@ public class Main {
                 case 2:
                     System.out.print("Enter two words (separated by space): ");
                     String[] wordsInput = scanner.nextLine().split(" ");
-                    List<String> bridges = graph.queryBridgeWords(wordsInput[0], wordsInput[1]);
-                    handleBridgeOutput(bridges, wordsInput[0], wordsInput[1]);
+                    System.out.println(graph.queryBridgeWords(wordsInput[0], wordsInput[1]));
                     break;
                 case 3:
                     System.out.print("Enter new text: ");
@@ -245,20 +284,22 @@ public class Main {
                 case 4:
                     System.out.print("Enter two words (separated by space): ");
                     String[] pathWords = scanner.nextLine().split(" ");
-                    List<String> path1 = graph.shortestPath(pathWords[0], pathWords[1]);
-                    System.out.println(path1.isEmpty() ? "No path" : "Path: " + String.join("→", path1));
+                    System.out.println(graph.calcShortestPath(pathWords[0], pathWords[1]));
                     break;
                 case 5:
-                    graph.calculatePageRank();
-                    System.out.println("PageRank Values:");
-                    graph.pageRanks.forEach((k, v) -> System.out.printf("%s: %.4f\n", k, v));
+                    while (true) {
+                        System.out.print("Enter a word: ");
+                        String word = scanner.nextLine().toLowerCase();
+                        if (graph.containsNode(word)) {
+                            System.out.println("PageRank of " + word + ": " + graph.calPageRank(word));
+                            break;
+                        } else {
+                            System.out.println("Word '" + word + "' not found in graph. Please try again.");
+                        }
+                    }
                     break;
                 case 6:
-                    List<String> walk = graph.randomWalk();
-                    System.out.println("Random Walk: " + String.join(" → ", walk));
-                    try (PrintWriter out = new PrintWriter("random_walk.txt")) {
-                        out.println(String.join(" ", walk));
-                    }
+                    System.out.println(graph.randomWalk());
                     break;
                 case 0:
                     return;
@@ -266,24 +307,15 @@ public class Main {
         }
     }
 
-    private static void handleBridgeOutput(List<String> bridges, String w1, String w2) {
-        if (bridges.isEmpty()) {
-            System.out.println("No bridge words from " + w1 + " to " + w2);
-        } else if (bridges.getFirst().startsWith("No")) {
-            System.out.println(bridges.getFirst() + " in the graph!");
-        } else {
-            StringJoiner sj = new StringJoiner(", ");
-            bridges.forEach(sj::add);
-            System.out.println("The bridge words from" + w1 + "to" + w2 + "is:" + sj);
-        }
-    }
-
-    static void showDirectedGraph(Graph graph) {
+    static void showDirectedGraph(Graph G) {
         System.out.println("\nDirected Graph:");
-        graph.getNodes().forEach(node -> {
-            System.out.print(node + " → ");
-            graph.getEdges(node).forEach((k, v) -> System.out.print(k + "(" + v + ") "));
-            System.out.println();
+        G.getNodes().forEach(node -> {
+            Map<String, Integer> edges = G.getEdges(node);
+            if (!edges.isEmpty()) {  // 只有当节点有出边时才显示
+                System.out.print(node + " → ");
+                edges.forEach((k, v) -> System.out.print(k + "(" + v + ") "));
+                System.out.println();
+            }
         });
     }
 }
