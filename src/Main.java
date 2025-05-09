@@ -18,7 +18,7 @@ public class Main {
             adjList.putIfAbsent(dest, new HashMap<>());
         }
 
-        // 获取所有的节点
+        // 获取所有节点
         Set<String> getNodes() {
             return adjList.keySet();
         }
