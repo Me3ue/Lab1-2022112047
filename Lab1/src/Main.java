@@ -33,7 +33,7 @@ public class Main {
             return adjList.containsKey(node.toLowerCase());
         }
 
-        // 桥接词的查询
+        // 桥接词查询
         List<String> queryBridgeWords(String word1, String word2) {
             word1 = word1.toLowerCase();
             word2 = word2.toLowerCase();
